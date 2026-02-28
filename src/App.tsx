@@ -2235,28 +2235,39 @@ const PengaturanView = ({
 
     const reader = new FileReader();
     reader.onload = async (evt) => {
-      const bstr = evt.target?.result;
-      const wb = XLSX.read(bstr, { type: 'binary' });
-      const wsname = wb.SheetNames[0];
-      const ws = wb.Sheets[wsname];
-      const data = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
-      
-      const importedSchools = data
-        .flat()
-        .map(s => String(s).trim())
-        .filter(s => s && s !== 'undefined' && !schoolList.includes(s));
-      
-      if (importedSchools.length > 0) {
-        const { error } = await supabase.from('master_schools').insert(
-          importedSchools.map(name => ({ name }))
-        );
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
         
-        if (!error) {
-          setSchoolList([...schoolList, ...importedSchools]);
-          alert(`Berhasil mengimpor ${importedSchools.length} sekolah.`);
+        const rawSchools = data
+          .flat()
+          .map(s => String(s).trim())
+          .filter(s => s && s !== 'undefined');
+          
+        const uniqueNewSchools = [...new Set(rawSchools)].filter(s => !schoolList.includes(s));
+        
+        if (uniqueNewSchools.length > 0) {
+          const { error } = await supabase.from('master_schools').upsert(
+            uniqueNewSchools.map(name => ({ name })),
+            { onConflict: 'name', ignoreDuplicates: true }
+          );
+          
+          if (!error) {
+            setSchoolList([...schoolList, ...uniqueNewSchools]);
+            alert(`Berhasil mengimpor ${uniqueNewSchools.length} sekolah.`);
+          } else {
+            console.error("Supabase error:", error);
+            alert(`Gagal mengimpor sekolah ke database: ${error.message}`);
+          }
         } else {
-          alert('Gagal mengimpor sekolah ke database.');
+          alert('Tidak ada data sekolah baru untuk diimpor (mungkin sudah ada atau file kosong).');
         }
+      } catch (err) {
+        console.error("Parsing error:", err);
+        alert('Gagal membaca file CSV/Excel.');
       }
     };
     reader.readAsBinaryString(file);
@@ -2269,72 +2280,117 @@ const PengaturanView = ({
 
     const reader = new FileReader();
     reader.onload = async (evt) => {
-      const bstr = evt.target?.result;
-      const wb = XLSX.read(bstr, { type: 'binary' });
-      const wsname = wb.SheetNames[0];
-      const ws = wb.Sheets[wsname];
-      const data = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
-      
-      const importedCategories = data
-        .flat()
-        .map(c => String(c).trim())
-        .filter(c => c && c !== 'undefined' && !cabangLomba.includes(c));
-      
-      if (importedCategories.length > 0) {
-        const { error } = await supabase.from('master_categories').insert(
-          importedCategories.map(name => ({ name }))
-        );
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
         
-        if (!error) {
-          setCabangLomba([...cabangLomba, ...importedCategories]);
-          alert(`Berhasil mengimpor ${importedCategories.length} cabang lomba.`);
+        const rawCategories = data
+          .flat()
+          .map(c => String(c).trim())
+          .filter(c => c && c !== 'undefined');
+          
+        const uniqueNewCategories = [...new Set(rawCategories)].filter(c => !cabangLomba.includes(c));
+        
+        if (uniqueNewCategories.length > 0) {
+          const { error } = await supabase.from('master_categories').upsert(
+            uniqueNewCategories.map(name => ({ name })),
+            { onConflict: 'name', ignoreDuplicates: true }
+          );
+          
+          if (!error) {
+            setCabangLomba([...cabangLomba, ...uniqueNewCategories]);
+            alert(`Berhasil mengimpor ${uniqueNewCategories.length} cabang lomba.`);
+          } else {
+            console.error("Supabase error:", error);
+            alert(`Gagal mengimpor cabang lomba ke database: ${error.message}`);
+          }
         } else {
-          alert('Gagal mengimpor cabang lomba ke database.');
+          alert('Tidak ada data cabang lomba baru untuk diimpor (mungkin sudah ada atau file kosong).');
         }
+      } catch (err) {
+        console.error("Parsing error:", err);
+        alert('Gagal membaca file CSV/Excel.');
       }
     };
     reader.readAsBinaryString(file);
     e.target.value = '';
   };
 
-  const handleAddSchool = () => {
+  const handleAddSchool = async () => {
     if (newSchool && !schoolList.includes(newSchool)) {
-      setSchoolList([...schoolList, newSchool]);
-      setNewSchool('');
+      const { error } = await supabase.from('master_schools').insert([{ name: newSchool }]);
+      if (!error) {
+        setSchoolList([...schoolList, newSchool]);
+        setNewSchool('');
+      } else {
+        alert('Gagal menambah sekolah: ' + error.message);
+      }
     }
   };
 
-  const handleUpdateSchool = () => {
+  const handleUpdateSchool = async () => {
     if (editingSchool && editingSchool.value) {
-      const newList = [...schoolList];
-      newList[editingSchool.index] = editingSchool.value;
-      setSchoolList(newList);
-      setEditingSchool(null);
+      const oldName = schoolList[editingSchool.index];
+      const newName = editingSchool.value;
+      const { error } = await supabase.from('master_schools').update({ name: newName }).eq('name', oldName);
+      if (!error) {
+        const newList = [...schoolList];
+        newList[editingSchool.index] = newName;
+        setSchoolList(newList);
+        setEditingSchool(null);
+      } else {
+        alert('Gagal mengupdate sekolah: ' + error.message);
+      }
     }
   };
 
-  const handleRemoveSchool = (school: string) => {
-    setSchoolList(schoolList.filter(s => s !== school));
+  const handleRemoveSchool = async (school: string) => {
+    const { error } = await supabase.from('master_schools').delete().eq('name', school);
+    if (!error) {
+      setSchoolList(schoolList.filter(s => s !== school));
+    } else {
+      alert('Gagal menghapus sekolah: ' + error.message);
+    }
   };
 
-  const handleAddCabang = () => {
+  const handleAddCabang = async () => {
     if (newCabang && !cabangLomba.includes(newCabang)) {
-      setCabangLomba([...cabangLomba, newCabang]);
-      setNewCabang('');
+      const { error } = await supabase.from('master_categories').insert([{ name: newCabang }]);
+      if (!error) {
+        setCabangLomba([...cabangLomba, newCabang]);
+        setNewCabang('');
+      } else {
+        alert('Gagal menambah cabang lomba: ' + error.message);
+      }
     }
   };
 
-  const handleUpdateCabang = () => {
+  const handleUpdateCabang = async () => {
     if (editingCabang && editingCabang.value) {
-      const newList = [...cabangLomba];
-      newList[editingCabang.index] = editingCabang.value;
-      setCabangLomba(newList);
-      setEditingCabang(null);
+      const oldName = cabangLomba[editingCabang.index];
+      const newName = editingCabang.value;
+      const { error } = await supabase.from('master_categories').update({ name: newName }).eq('name', oldName);
+      if (!error) {
+        const newList = [...cabangLomba];
+        newList[editingCabang.index] = newName;
+        setCabangLomba(newList);
+        setEditingCabang(null);
+      } else {
+        alert('Gagal mengupdate cabang lomba: ' + error.message);
+      }
     }
   };
 
-  const handleRemoveCabang = (cabang: string) => {
-    setCabangLomba(cabangLomba.filter(c => c !== cabang));
+  const handleRemoveCabang = async (cabang: string) => {
+    const { error } = await supabase.from('master_categories').delete().eq('name', cabang);
+    if (!error) {
+      setCabangLomba(cabangLomba.filter(c => c !== cabang));
+    } else {
+      alert('Gagal menghapus cabang lomba: ' + error.message);
+    }
   };
 
   const handleSaveSettings = () => {
