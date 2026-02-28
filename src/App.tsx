@@ -2823,7 +2823,9 @@ const PlaceholderView = ({ title, darkMode }: { title: string, darkMode: boolean
 // --- Main App ---
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return localStorage.getItem('isLoggedIn') === 'true';
+  });
   const [darkMode, setDarkMode] = useState(false);
   const [activeView, setActiveView] = useState<View>('Dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -3303,7 +3305,10 @@ export default function App() {
   };
 
   if (!isLoggedIn) {
-    return <Login onLogin={() => setIsLoggedIn(true)} />;
+    return <Login onLogin={() => {
+      localStorage.setItem('isLoggedIn', 'true');
+      setIsLoggedIn(true);
+    }} />;
   }
 
   return (
