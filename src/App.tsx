@@ -47,7 +47,6 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from './lib/supabase';
 import { useEffect } from 'react';
-import Login from './components/Login';
 
 // --- Types ---
 type View = 'Dashboard' | 'Data Peserta' | 'Nomor Tampilan' | 'Penilaian' | 'Rekap Nilai' | 'Rekap Per-Cabang Lomba' | 'Pengumuman' | 'Pengaturan' | 'Daftar Hadir' | 'Sertifikat';
@@ -2879,9 +2878,6 @@ const PlaceholderView = ({ title, darkMode }: { title: string, darkMode: boolean
 // --- Main App ---
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    return localStorage.getItem('isLoggedIn') === 'true';
-  });
   const [darkMode, setDarkMode] = useState(false);
   const [activeView, setActiveView] = useState<View>('Dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -3359,13 +3355,6 @@ export default function App() {
       default: return <PlaceholderView title={activeView} darkMode={darkMode} />;
     }
   };
-
-  if (!isLoggedIn) {
-    return <Login onLogin={() => {
-      localStorage.setItem('isLoggedIn', 'true');
-      setIsLoggedIn(true);
-    }} />;
-  }
 
   return (
     <div className={`min-h-screen font-sans flex transition-colors duration-300 ${darkMode ? 'bg-[#0f1117] text-slate-100 dark' : 'bg-slate-50 text-slate-900'}`}>
