@@ -2319,14 +2319,21 @@ const PengaturanView = ({
   };
 
   const handleAddSchool = async () => {
-    if (newSchool && !schoolList.includes(newSchool)) {
-      const { error } = await supabase.from('master_schools').insert([{ name: newSchool }]);
-      if (!error) {
-        setSchoolList([...schoolList, newSchool]);
-        setNewSchool('');
-      } else {
-        alert('Gagal menambah sekolah: ' + error.message);
-      }
+    if (!newSchool.trim()) {
+      alert('Nama sekolah tidak boleh kosong.');
+      return;
+    }
+    const schoolName = newSchool.trim();
+    if (schoolList.includes(schoolName)) {
+      alert('Sekolah tersebut sudah ada di daftar.');
+      return;
+    }
+    const { error } = await supabase.from('master_schools').insert([{ name: schoolName }]);
+    if (!error) {
+      setSchoolList([...schoolList, schoolName].sort());
+      setNewSchool('');
+    } else {
+      alert('Gagal menambah sekolah: ' + error.message);
     }
   };
 
@@ -2356,14 +2363,21 @@ const PengaturanView = ({
   };
 
   const handleAddCabang = async () => {
-    if (newCabang && !cabangLomba.includes(newCabang)) {
-      const { error } = await supabase.from('master_categories').insert([{ name: newCabang }]);
-      if (!error) {
-        setCabangLomba([...cabangLomba, newCabang]);
-        setNewCabang('');
-      } else {
-        alert('Gagal menambah cabang lomba: ' + error.message);
-      }
+    if (!newCabang.trim()) {
+      alert('Nama cabang lomba tidak boleh kosong.');
+      return;
+    }
+    const cabangName = newCabang.trim();
+    if (cabangLomba.includes(cabangName)) {
+      alert('Cabang lomba tersebut sudah ada di daftar.');
+      return;
+    }
+    const { error } = await supabase.from('master_categories').insert([{ name: cabangName }]);
+    if (!error) {
+      setCabangLomba([...cabangLomba, cabangName].sort());
+      setNewCabang('');
+    } else {
+      alert('Gagal menambah cabang lomba: ' + error.message);
     }
   };
 
@@ -2479,6 +2493,7 @@ const PengaturanView = ({
               type="text" 
               value={newSchool}
               onChange={(e) => setNewSchool(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAddSchool()}
               placeholder="Tambah sekolah baru..."
               className={`flex-1 px-4 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500 transition-all ${
                 darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-black'
@@ -2566,6 +2581,7 @@ const PengaturanView = ({
               type="text" 
               value={newCabang}
               onChange={(e) => setNewCabang(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAddCabang()}
               placeholder="Tambah cabang lomba..."
               className={`flex-1 px-4 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-amber-500 transition-all ${
                 darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-black'
@@ -2887,8 +2903,6 @@ export default function App() {
   const [schoolFilter, setSchoolFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
-  const [newSchool, setNewSchool] = useState('');
-  const [newCabang, setNewCabang] = useState('');
   
   const [schoolList, setSchoolList] = useState<string[]>([]);
   const [cabangLomba, setCabangLomba] = useState<string[]>([]);
@@ -2937,11 +2951,11 @@ export default function App() {
         }
 
         // Fetch Schools
-        const { data: schoolsData } = await supabase.from('master_schools').select('name');
+        const { data: schoolsData } = await supabase.from('master_schools').select('name').order('name');
         if (schoolsData) setSchoolList(schoolsData.map(s => s.name));
 
         // Fetch Categories
-        const { data: categoriesData } = await supabase.from('master_categories').select('name');
+        const { data: categoriesData } = await supabase.from('master_categories').select('name').order('name');
         if (categoriesData) setCabangLomba(categoriesData.map(c => c.name));
 
         // Fetch Peserta
@@ -3026,7 +3040,7 @@ export default function App() {
       .channel('schools_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'master_schools' }, () => {
         // Re-fetch schools list for simplicity
-        supabase.from('master_schools').select('name').then(({ data }) => {
+        supabase.from('master_schools').select('name').order('name').then(({ data }) => {
           if (data) setSchoolList(data.map(s => s.name));
         });
       })
@@ -3036,7 +3050,7 @@ export default function App() {
       .channel('categories_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'master_categories' }, () => {
         // Re-fetch categories list for simplicity
-        supabase.from('master_categories').select('name').then(({ data }) => {
+        supabase.from('master_categories').select('name').order('name').then(({ data }) => {
           if (data) setCabangLomba(data.map(c => c.name));
         });
       })
@@ -3147,40 +3161,6 @@ export default function App() {
     if (!error) {
       setShowSaveSuccess(true);
       setTimeout(() => setShowSaveSuccess(false), 3000);
-    }
-  };
-
-  const handleAddSchool = async () => {
-    if (newSchool && !schoolList.includes(newSchool)) {
-      const { error } = await supabase.from('master_schools').insert([{ name: newSchool }]);
-      if (!error) {
-        setSchoolList([...schoolList, newSchool]);
-        setNewSchool('');
-      }
-    }
-  };
-
-  const handleRemoveSchool = async (school: string) => {
-    const { error } = await supabase.from('master_schools').delete().eq('name', school);
-    if (!error) {
-      setSchoolList(schoolList.filter(s => s !== school));
-    }
-  };
-
-  const handleAddCabang = async () => {
-    if (newCabang && !cabangLomba.includes(newCabang)) {
-      const { error } = await supabase.from('master_categories').insert([{ name: newCabang }]);
-      if (!error) {
-        setCabangLomba([...cabangLomba, newCabang]);
-        setNewCabang('');
-      }
-    }
-  };
-
-  const handleRemoveCabang = async (cabang: string) => {
-    const { error } = await supabase.from('master_categories').delete().eq('name', cabang);
-    if (!error) {
-      setCabangLomba(cabangLomba.filter(c => c !== cabang));
     }
   };
 
